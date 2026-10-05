@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>รถยนต์ AR • Hiro Marker</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;font-family:system-ui,sans-serif;color:#fff}header,.panel{position:fixed;z-index:10;background:rgba(13,23,38,.91);border:1px solid #ffffff25;border-radius:18px;padding:16px;backdrop-filter:blur(10px)}header{top:max(12px,env(safe-area-inset-top));left:12px;right:12px;pointer-events:none}h1{font-size:19px;margin:0 0 5px}p{margin:5px 0;font-size:13px;color:#cbd5e1}.panel{bottom:max(12px,env(safe-area-inset-bottom));left:12px;right:12px;max-width:520px;margin:auto}button{border:0;border-radius:12px;padding:12px 14px;background:#334155;color:white;font:inherit;cursor:pointer;touch-action:manipulation;min-height:46px}button:disabled{opacity:.45;cursor:wait}button:focus-visible{outline:3px solid white}button[aria-pressed=true]{background:#36cbb0;color:#072a28}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.row button{flex:1}#door{background:#2979ed;width:100%;margin-top:10px}#status{color:#7ee7d4}a{color:#8fd5ff}summary{cursor:pointer;font-size:13px}details{margin-top:10px}#error{color:#ffc6b5}a-scene{position:absolute;inset:0}
+</style>
+<script>window.libFailed=false;function libraryError(){window.libFailed=true;}</script>
+<script src="https://aframe.io/releases/1.6.0/aframe.min.js" onerror="libraryError()"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js" onerror="libraryError()"></script>
+<script>
+// โมเดลสร้างจาก THREE ที่มากับ A-Frame ไม่ต้องใช้ไฟล์โมเดลภายนอก
+if(window.AFRAME){AFRAME.registerComponent('ar-car',{
+ init:function(){
+ const T=AFRAME.THREE, car=new T.Group();this.wheels=[];this.doors=[];this.rpm=30;this.open=false;this.angle=0;
+ const paint=new T.MeshStandardMaterial({color:0x1676d2,metalness:.45,roughness:.3});
+ const black=new T.MeshStandardMaterial({color:0x151c25,roughness:.85});
+ const chrome=new T.MeshStandardMaterial({color:0xc8dae9,metalness:.7,roughness:.28});
+ const glass=new T.MeshStandardMaterial({color:0x7bc7df,metalness:.25,roughness:.22,transparent:true,opacity:.55});
+ const lamp=new T.MeshStandardMaterial({color:0xfff3bc,emissive:0xffdd88,emissiveIntensity:.6});
+ const red=new T.MeshStandardMaterial({color:0xf54242,emissive:0x991010});
+ const box=(p,w,h,d,x,y,z,m)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);p.add(o);return o;};
+ // รถหันหน้าไปทาง -Z; แกนล้ออยู่ตามแนว X
+ box(car,1.05,.22,2.12,0,.38,0,paint);box(car,.94,.09,1.95,0,.245,0,black);
+ box(car,1.04,.17,.62,0,.57,-.72,paint);box(car,1.04,.18,.40,0,.57,.86,paint);
+ box(car,.92,.07,.99,0,1.02,.05,paint);
+ box(car,.85,.34,.045,0,.82,-.46,glass);box(car,.85,.34,.045,0,.82,.54,glass);
+ for(const x of [-.44,.44])for(const z of [-.47,.55])box(car,.055,.42,.055,x,.82,z,paint);
+ // เบาะภายในมองเห็นเมื่อเปิดประตู
+ for(const x of [-.23,.23]){box(car,.29,.13,.35,x,.54,.08,black);box(car,.29,.32,.09,x,.72,.25,black);}
+ box(car,.78,.12,.13,0,.66,-.38,black);
+ for(const side of [-1,1]){
+   // บานพับอยู่ด้านหน้าประตู กระจกและมือจับหมุนไปพร้อมประตู
+   const hinge=new T.Group();hinge.position.set(side*.525,.61,-.43);car.add(hinge);
+   box(hinge,.065,.26,.91,0,0,.455,paint);box(hinge,.035,.29,.84,0,.285,.455,glass);
+   box(hinge,.06,.035,.90,0,.45,.455,paint);box(hinge,.065,.31,.035,0,.285,.89,paint);
+   box(hinge,.035,.035,.14,side*.045,.04,.73,chrome);
+   box(hinge,.14,.09,.14,side*.065,.21,.08,paint);
+   this.doors.push({hinge,side});
+   for(const z of [-.70,.70]){
+     const wheel=new T.Group();wheel.position.set(side*.56,.245,z);car.add(wheel);
+     const tire=new T.Mesh(new T.CylinderGeometry(.235,.235,.17,32),black);tire.rotation.z=Math.PI/2;wheel.add(tire);
+     const hub=new T.Mesh(new T.CylinderGeometry(.155,.155,.182,24),chrome);hub.rotation.z=Math.PI/2;wheel.add(hub);
+     // ซี่ล้อสีเข้มทำให้เห็นการหมุนชัดเจน
+     for(let i=0;i<5;i++){const a=i*Math.PI*2/5;const spoke=box(wheel,.19,.026,.125,0,Math.sin(a)*.075,Math.cos(a)*.075,black);spoke.rotation.x=-a;}
+     this.wheels.push(wheel);
+   }
+   box(car,.25,.105,.035,side*.34,.58,-1.045,lamp);box(car,.25,.10,.035,side*.34,.57,1.067,red);
+ }
+ box(car,.60,.095,.04,0,.40,-1.075,black);box(car,1.06,.07,.065,0,.29,-1.055,chrome);
+ box(car,1.06,.07,.065,0,.29,1.055,chrome);
+ this.el.setObject3D('mesh',car);
+ this.el.emit('car-ready');
+ },
+ tick:function(time,delta){
+ if(!this.el.parentEl.object3D.visible || document.hidden)return;
+ const dt=Math.min((delta||0)/1000,.05);
+ const spin=this.rpm*Math.PI*2/60*dt;
+ this.wheels.forEach(w=>w.rotation.x=(w.rotation.x-spin)%(Math.PI*2));
+ const target=this.open?Math.PI*70/180:0;
+ const step=dt*2.4;this.angle+=Math.max(-step,Math.min(step,target-this.angle));
+ this.doors.forEach(d=>d.hinge.rotation.y=d.side*this.angle);
+ }
+});}
+</script>
+</head>
+<body>
+<header><h1>🚙 รถยนต์ AR</h1><p id="status" role="status" aria-live="polite">กำลังเตรียมกล้อง…</p><p id="error" role="alert"></p></header>
+<section class="panel" aria-label="แผงควบคุมรถ">
+<strong>ความเร็วล้อ: <span id="speed">30 RPM</span></strong>
+<div class="row" role="group" aria-label="ความเร็วล้อรถ">
+<button disabled data-rpm="0" aria-pressed="false">หยุด</button>
+<button disabled data-rpm="30" aria-pressed="true">ช้า</button>
+<button disabled data-rpm="90" aria-pressed="false">กลาง</button>
+<button disabled data-rpm="180" aria-pressed="false">เร็ว</button>
+</div>
+<button id="door" disabled aria-pressed="false">เปิดประตูรถ</button>
+<details><summary>วิธีใช้งาน</summary><p>เปิดผ่าน HTTPS หรือ localhost และอนุญาตกล้อง จากนั้นส่อง Hiro Marker ให้เห็นกรอบดำครบทั้งสี่ด้าน รถจะอยู่บน Marker และล้อหมุนตามความเร็วที่เลือก</p><p><a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png" target="_blank" rel="noopener">เปิดภาพ Hiro Marker</a> บนอีกหน้าจอ หรือพิมพ์ลงกระดาษ</p><p>ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลด A-Frame และ AR.js • RPM คือรอบต่อนาทีของล้อจำลอง รถไม่เคลื่อนออกจาก Marker</p></details>
+</section>
+<a-scene embedded vr-mode-ui="enabled:false" device-orientation-permission-ui="enabled:false" renderer="antialias:true; alpha:true; precision:medium" arjs="sourceType:webcam; debugUIEnabled:false; trackingMethod:best;">
+<a-entity light="type:ambient;intensity:1.3"></a-entity>
+<a-entity light="type:directional;intensity:2" position="-2 4 -3"></a-entity>
+<a-marker id="hiro" preset="hiro" emitevents="true"><a-entity id="car" ar-car scale="0.8 0.8 0.8"></a-entity></a-marker>
+<a-entity camera></a-entity>
+</a-scene>
+<script>
+const statusEl=document.getElementById('status'),errorEl=document.getElementById('error');
+const marker=document.getElementById('hiro'),carEl=document.getElementById('car'),door=document.getElementById('door');
+const buttons=[...document.querySelectorAll('[data-rpm]')];
+function ready(){if(!carEl.components || !carEl.components['ar-car'])return;document.querySelectorAll('button').forEach(b=>b.disabled=false);}
+carEl.addEventListener('car-ready',ready);ready();
+buttons.forEach(b=>b.addEventListener('click',()=>{
+ const c=carEl.components['ar-car'];c.rpm=Number(b.dataset.rpm);
+ document.getElementById('speed').textContent=c.rpm+' RPM';
+ buttons.forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+}));
+door.addEventListener('click',()=>{const c=carEl.components['ar-car'];c.open=!c.open;door.setAttribute('aria-pressed',String(c.open));door.textContent=c.open?'ปิดประตูรถ':'เปิดประตูรถ';});
+marker.addEventListener('markerFound',()=>{statusEl.textContent='พบ Hiro Marker แล้ว • พร้อมควบคุมรถ';});
+marker.addEventListener('markerLost',()=>{statusEl.textContent='ไม่พบ Marker • ส่องกล้องไปที่ Hiro อีกครั้ง';});
+window.addEventListener('camera-init',()=>{statusEl.textContent='กล้องพร้อม • ส่องไปที่ Hiro Marker';});
+window.addEventListener('camera-error',()=>{errorEl.textContent='เปิดกล้องไม่ได้ กรุณาอนุญาตสิทธิ์กล้อง ปิดแอปอื่นที่ใช้กล้อง แล้วโหลดหน้าใหม่';});
+if(window.libFailed || !window.AFRAME){errorEl.textContent='โหลดไลบรารีไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วโหลดหน้าใหม่';statusEl.textContent='ยังไม่พร้อมใช้งาน';}
+else if(!window.isSecureContext || !navigator.mediaDevices){errorEl.textContent='กรุณาเปิดหน้านี้ผ่าน HTTPS หรือ http://localhost เพื่อให้เข้าถึงกล้องได้';}
+</script>
+<!-- อ้างอิง: https://ar-js-org.github.io/AR.js-Docs/marker-based/ -->
+</body>
+</html>
